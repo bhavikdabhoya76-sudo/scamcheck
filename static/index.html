@@ -62,12 +62,22 @@
   .footer { text-align: center; color: #64748b; font-size: 0.8rem; margin: 28px 0 10px; line-height: 1.6; }
   .footer a { color: #38bdf8; }
   .ai-badge { display: none; margin-top: 8px; font-size: 0.82rem; color: #c4b5fd; }
+  .stats-bar { text-align: center; color: #7dd3fc; font-size: 0.85rem; margin-bottom: 16px; }
+  .feedback-btn {
+    display: none; margin-top: 12px; width: auto; padding: 8px 14px;
+    background: transparent; border: 1px solid #64748b; color: #94a3b8;
+    font-size: 0.82rem; border-radius: 8px;
+  }
+  .feedback-btn:hover { background: #334155; color: #e2e8f0; }
+  .feedback-thanks { display: none; margin-top: 12px; font-size: 0.85rem; color: #86efac; }
 </style>
 </head>
 <body>
 <div class="container">
   <h1>🛡️ ScamCheck</h1>
   <p class="subtitle">શંકાસ્પદ SMS / WhatsApp message અહીં paste કરો<br>संदिग्ध मैसेज यहाँ पेस्ट करें · Paste suspicious message here</p>
+
+  <div class="stats-bar" id="statsBar"></div>
 
   <!-- 🔒 Privacy Promise -->
   <div class="privacy-badge">
@@ -84,6 +94,8 @@
     <div class="advice" id="adviceText"></div>
     <ul class="reasons" id="reasonsList"></ul>
     <div class="ai-badge" id="aiBadge">🧠 Google AI વડે ઊંડું analysis કરવામાં આવ્યું</div>
+    <button class="feedback-btn" id="feedbackBtn" onclick="sendFeedback()">👎 આ result ખોટું લાગે છે? જણાવો</button>
+    <div class="feedback-thanks" id="feedbackThanks"></div>
   </div>
 
   <!-- ⚠️ પ્રામાણિક Disclaimer -->
@@ -135,6 +147,39 @@
 </div>
 
 <script>
+// છેલ્લા check નો data - feedback માટે યાદ રાખો
+let lastCheck = null;
+
+// Page ખુલતા જ counter લાવો
+async function loadStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const s = await r.json();
+    if (s.total_checks > 0) {
+      document.getElementById('statsBar').textContent =
+        '🛡️ અત્યાર સુધી ' + s.total_checks + ' messages check થયા · ' + s.frauds_caught + ' frauds પકડાયા';
+    }
+  } catch (e) { /* counter ન આવે તો ચૂપ રહો */ }
+}
+loadStats();
+
+async function sendFeedback() {
+  if (!lastCheck) return;
+  // મહત્વનું: user એ જાતે button દબાવ્યું = message share કરવાની સંમતિ
+  if (!confirm('આ message અમને મોકલાશે જેથી અમે detection સુધારી શકીએ. મોકલવો છે?')) return;
+  try {
+    const r = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lastCheck)
+    });
+    const d = await r.json();
+    document.getElementById('feedbackBtn').style.display = 'none';
+    const thanks = document.getElementById('feedbackThanks');
+    thanks.textContent = d.message;
+    thanks.style.display = 'block';
+  } catch (e) { alert('Feedback મોકલવામાં ભૂલ થઈ.'); }
+}
 async function checkMessage() {
   const text = document.getElementById('messageBox').value;
   const btn = document.getElementById('checkBtn');
@@ -173,6 +218,13 @@ async function checkMessage() {
     });
 
     document.getElementById('aiBadge').style.display = data.ai_used ? 'block' : 'none';
+
+    // Feedback માટે આ check યાદ રાખો અને button બતાવો
+    lastCheck = { text: text, verdict: data.verdict, score: data.score };
+    document.getElementById('feedbackBtn').style.display = data.verdict === 'EMPTY' ? 'none' : 'inline-block';
+    document.getElementById('feedbackThanks').style.display = 'none';
+
+    loadStats();  // counter તાજો કરો
 
     // Result પર scroll કરો જેથી user ને તરત દેખાય
     resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
