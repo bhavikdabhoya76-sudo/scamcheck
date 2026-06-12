@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScamCheck — Fraud Message Checker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+  body { background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; justify-content: center; padding: 20px; }
+  .container { width: 100%; max-width: 560px; }
+  h1 { text-align: center; margin: 24px 0 4px; font-size: 1.8rem; }
+  .subtitle { text-align: center; color: #94a3b8; margin-bottom: 14px; font-size: 0.95rem; }
+
+  /* 🔒 Privacy promise badge - trust માટે સૌથી મહત્વનું */
+  .privacy-badge {
+    background: #052e16; border: 1px solid #16a34a; border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 18px; font-size: 0.88rem;
+    color: #bbf7d0; text-align: center; line-height: 1.5;
+  }
+
+  textarea {
+    width: 100%; min-height: 140px; padding: 14px; border-radius: 12px;
+    border: 2px solid #334155; background: #1e293b; color: #e2e8f0;
+    font-size: 1rem; resize: vertical;
+  }
+  textarea:focus { outline: none; border-color: #38bdf8; }
+  button {
+    width: 100%; margin-top: 12px; padding: 14px; border: none; border-radius: 12px;
+    background: #0ea5e9; color: white; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+  }
+  button:hover { background: #0284c7; }
+  button:disabled { background: #475569; cursor: wait; }
+  .result { margin-top: 20px; padding: 18px; border-radius: 12px; display: none; }
+  .result.safe { background: #052e16; border: 2px solid #16a34a; }
+  .result.suspicious { background: #422006; border: 2px solid #f59e0b; }
+  .result.dangerous { background: #450a0a; border: 2px solid #dc2626; }
+  .result.empty { background: #1e293b; border: 2px solid #475569; }
+  .score { font-size: 2.4rem; font-weight: 800; }
+  .verdict-label { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+  .advice { margin: 10px 0; line-height: 1.5; }
+  .reasons { margin-top: 10px; padding-left: 18px; color: #cbd5e1; font-size: 0.9rem; }
+  .reasons li { margin: 4px 0; }
+
+  /* ⚠️ પ્રામાણિક disclaimer */
+  .disclaimer {
+    margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+    background: #1e293b; border: 1px solid #475569;
+    font-size: 0.82rem; color: #94a3b8; line-height: 1.5;
+  }
+
+  /* 📚 Scam awareness cards */
+  .awareness { margin-top: 32px; }
+  .awareness h2 { font-size: 1.2rem; margin-bottom: 14px; text-align: center; }
+  .scam-card {
+    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 10px;
+  }
+  .scam-card .scam-title { font-weight: 700; margin-bottom: 6px; color: #fbbf24; }
+  .scam-card p { font-size: 0.88rem; color: #cbd5e1; line-height: 1.55; }
+  .scam-card .tip { color: #86efac; font-size: 0.85rem; margin-top: 6px; display: block; }
+
+  .footer { text-align: center; color: #64748b; font-size: 0.8rem; margin: 28px 0 10px; line-height: 1.6; }
+  .footer a { color: #38bdf8; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🛡️ ScamCheck</h1>
+  <p class="subtitle">શંકાસ્પદ SMS / WhatsApp message અહીં paste કરો<br>संदिग्ध मैसेज यहाँ पेस्ट करें · Paste suspicious message here</p>
+
+  <!-- 🔒 Privacy Promise -->
+  <div class="privacy-badge">
+    🔒 <strong>તમારી Privacy અમારું વચન:</strong> તમારો message ક્યાંય save થતો નથી —
+    check થાય અને તરત ભૂંસાઈ જાય. કોઈ login નહીં, કોઈ tracking નહીં.
+  </div>
+
+  <textarea id="messageBox" placeholder="દા.ત. Your KYC expired. Click http://sbi-verify.xyz ..."></textarea>
+  <button id="checkBtn" onclick="checkMessage()">✓ Check કરો</button>
+
+  <div id="result" class="result">
+    <div class="verdict-label" id="verdictLabel"></div>
+    <div class="score" id="scoreText"></div>
+    <div class="advice" id="adviceText"></div>
+    <ul class="reasons" id="reasonsList"></ul>
+  </div>
+
+  <!-- ⚠️ પ્રામાણિક Disclaimer -->
+  <div class="disclaimer">
+    ⚠️ <strong>નોંધ:</strong> આ tool જાણીતા fraud patterns શોધે છે, પણ 100% guarantee કોઈ tool આપી શકતું નથી.
+    નવા પ્રકારના scams રોજ બને છે. કોઈપણ શંકા હોય તો પૈસા/OTP આપતા પહેલા તમારી bank ના
+    <strong>official customer care નંબર</strong> પર જાતે ફોન કરીને ખાતરી કરો.
+  </div>
+
+  <!-- 📚 Scam Awareness Section -->
+  <div class="awareness">
+    <h2>📚 આવા scams થી સાવધાન રહો</h2>
+
+    <div class="scam-card">
+      <div class="scam-title">🚔 Digital Arrest Scam</div>
+      <p>નકલી "પોલીસ/CBI officer" video call કરીને કહે છે કે તમારા નામે case છે અને "digital arrest" થયા છો — પૈસા ભરો તો છૂટશો. <strong>યાદ રાખો: Digital arrest જેવી કોઈ વસ્તુ કાયદામાં છે જ નહીં!</strong></p>
+      <span class="tip">✓ આવો call આવે તો તરત કાપી નાખો અને 1930 પર જાણ કરો.</span>
+    </div>
+
+    <div class="scam-card">
+      <div class="scam-title">🏦 KYC / Account Block Fraud</div>
+      <p>"તમારું KYC expire થયું છે, ખાતું બંધ થઈ જશે, આ link પર update કરો" — આવા SMS માં નકલી bank website ની link હોય છે જે તમારો password ચોરી લે છે.</p>
+      <span class="tip">✓ Bank ક્યારેય SMS link થી KYC નથી કરાવતી. Branch માં જ જાઓ.</span>
+    </div>
+
+    <div class="scam-card">
+      <div class="scam-title">💸 UPI Collect Request Scam</div>
+      <p>"તમને પૈસા મોકલવા છે, આ request accept કરો અને PIN નાખો" — પણ PIN નાખવાથી પૈસા <strong>આવતા નથી, જાય છે!</strong></p>
+      <span class="tip">✓ પૈસા લેવા માટે PIN ક્યારેય નાખવો પડતો નથી. PIN = પૈસા આપવા.</span>
+    </div>
+
+    <div class="scam-card">
+      <div class="scam-title">🎁 Lottery / ઇનામ Fraud</div>
+      <p>"તમે 25 લાખની લોટરી જીત્યા! ઇનામ લેવા processing fee ભરો" — જે લોટરી તમે ભરી જ નથી એ જીતી કેવી રીતે શકાય?</p>
+      <span class="tip">✓ ઇનામ લેવા પૈસા માગે = 100% fraud.</span>
+    </div>
+
+    <div class="scam-card">
+      <div class="scam-title">📱 Screen Share / AnyDesk Fraud</div>
+      <p>"Refund આપવા માટે AnyDesk/TeamViewer install કરો" કહીને તમારી screen જોઈને OTP અને bank details ચોરી લે છે.</p>
+      <span class="tip">✓ અજાણ્યા કોઈના કહેવાથી screen share app ક્યારેય install ન કરો.</span>
+    </div>
+  </div>
+
+  <p class="footer">
+    Cyber fraud થયો હોય તો તરત report કરો: <strong>Helpline 1930</strong> · <a href="https://cybercrime.gov.in" target="_blank">cybercrime.gov.in</a><br>
+    ScamCheck — તમારી સુરક્ષા માટે, મફત. 🇮🇳
+  </p>
+</div>
+
+<script>
+async function checkMessage() {
+  const text = document.getElementById('messageBox').value;
+  const btn = document.getElementById('checkBtn');
+  const resultDiv = document.getElementById('result');
+
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+
+  try {
+    const response = await fetch('/api/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    });
+    const data = await response.json();
+
+    resultDiv.className = 'result ' + data.verdict.toLowerCase();
+    resultDiv.style.display = 'block';
+
+    const labels = {
+      'SAFE': '✅ સુરક્ષિત લાગે છે · Safe',
+      'SUSPICIOUS': '⚠️ શંકાસ્પદ · Suspicious',
+      'DANGEROUS': '🚫 ખતરનાક! · Dangerous',
+      'EMPTY': 'ℹ️ Message લખો'
+    };
+    document.getElementById('verdictLabel').textContent = labels[data.verdict] || data.verdict;
+    document.getElementById('scoreText').textContent = data.verdict === 'EMPTY' ? '' : 'Risk: ' + data.score + '/100';
+    document.getElementById('adviceText').textContent = data.advice;
+
+    const list = document.getElementById('reasonsList');
+    list.innerHTML = '';
+    data.reasons.forEach(reason => {
+      const li = document.createElement('li');
+      li.textContent = reason;
+      list.appendChild(li);
+    });
+
+    // Result પર scroll કરો જેથી user ને તરત દેખાય
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (err) {
+    alert('કંઈક ભૂલ થઈ. Server ચાલે છે કે નહીં તે check કરો.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✓ Check કરો';
+  }
+}
+</script>
+</body>
+</html>
