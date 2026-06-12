@@ -45,8 +45,10 @@ def check_message(request: CheckRequest):
     result = analyze_message(text)
     result["ai_used"] = False
 
-    # Step 2: અસ્પષ્ટ zone માં AI ને પૂછો
-    if is_ai_available() and 10 <= result["score"] < 60:
+    # Step 2: AI deep analysis - સ્પષ્ટ fraud (60+) સિવાય બધે પૂછો
+    # કારણ: નવા scams keywords માં નથી હોતા (score 0 આવે), એમને AI જ પકડી શકે!
+    # બહુ ટૂંકા messages ("hi" વગેરે) skip - ત્યાં scam હોવાની શક્યતા નહિવત
+    if is_ai_available() and result["score"] < 60 and len(text) >= 15:
         ai = analyze_with_ai(text)
         if ai is not None:
             result["ai_used"] = True
@@ -75,4 +77,4 @@ def check_message(request: CheckRequest):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "ai_enabled": is_ai_available()}
+    return {"status": "ok", "version": "3.1", "ai_enabled": is_ai_available()}
