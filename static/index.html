@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ScamCheck — Fraud Message Checker</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f172a">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
   body { background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; justify-content: center; padding: 20px; }
@@ -70,6 +73,23 @@
   }
   .feedback-btn:hover { background: #334155; color: #e2e8f0; }
   .feedback-thanks { display: none; margin-top: 12px; font-size: 0.85rem; color: #86efac; }
+  .file-section {
+    margin-top: 22px; padding: 16px; border: 2px dashed #334155;
+    border-radius: 12px; text-align: center;
+  }
+  .file-section p { color: #94a3b8; font-size: 0.9rem; margin-bottom: 10px; }
+  .file-section input[type=file] { color: #94a3b8; font-size: 0.85rem; max-width: 100%; }
+  .scan-btn {
+    width: 100%; margin-top: 10px; padding: 12px; border: none; border-radius: 12px;
+    background: #8b5cf6; color: white; font-size: 1rem; font-weight: 600;
+  }
+  .scan-btn:hover { background: #7c3aed; }
+  .scan-btn:disabled { background: #475569; }
+  .install-btn {
+    display: none; width: 100%; margin-top: 10px; padding: 12px;
+    background: #16a34a; border: none; border-radius: 12px;
+    color: white; font-size: 1rem; font-weight: 600;
+  }
 </style>
 </head>
 <body>
@@ -87,6 +107,7 @@
 
   <textarea id="messageBox" placeholder="દા.ત. Your KYC expired. Click http://sbi-verify.xyz ..."></textarea>
   <button id="checkBtn" onclick="checkMessage()">✓ Check કરો</button>
+  <button class="install-btn" id="installBtn" onclick="installApp()">📱 Phone માં App તરીકે Install કરો</button>
 
   <div id="result" class="result">
     <div class="verdict-label" id="verdictLabel"></div>
@@ -96,6 +117,14 @@
     <div class="ai-badge" id="aiBadge">🧠 Google AI વડે ઊંડું analysis કરવામાં આવ્યું</div>
     <button class="feedback-btn" id="feedbackBtn" onclick="sendFeedback()">👎 આ result ખોટું લાગે છે? જણાવો</button>
     <div class="feedback-thanks" id="feedbackThanks"></div>
+  </div>
+
+  <!-- 📄 File Scanner -->
+  <div class="file-section">
+    <p>📄 <strong>File Scan</strong> — શંકાસ્પદ APK, PDF, Word, Excel file અહીં તપાસો<br>
+    <span style="font-size:0.8rem">(File ક્યાંય save થતી નથી — scan થઈને તરત ભૂંસાઈ જાય)</span></p>
+    <input type="file" id="fileInput" accept=".apk,.pdf,.docx,.docm,.xlsx,.xlsm,.pptx">
+    <button class="scan-btn" id="scanBtn" onclick="scanFile()">🔍 File Scan કરો</button>
   </div>
 
   <!-- ⚠️ પ્રામાણિક Disclaimer -->
@@ -147,6 +176,25 @@
 </div>
 
 <script>
+// PWA: service worker register કરો
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+
+// Install button: browser install કરવા તૈયાર હોય ત્યારે જ બતાવો
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  document.getElementById('installBtn').style.display = 'block';
+});
+async function installApp() {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  document.getElementById('installBtn').style.display = 'none';
+}
 // છેલ્લા check નો data - feedback માટે યાદ રાખો
 let lastCheck = null;
 
@@ -162,6 +210,56 @@ async function loadStats() {
   } catch (e) { /* counter ન આવે તો ચૂપ રહો */ }
 }
 loadStats();
+
+function showResult(data, isFile) {
+  const resultDiv = document.getElementById('result');
+  resultDiv.className = 'result ' + (data.verdict === 'ERROR' ? 'empty' : data.verdict.toLowerCase());
+  resultDiv.style.display = 'block';
+  const labels = {
+    'SAFE': '✅ સુરક્ષિત લાગે છે · Safe', 'SUSPICIOUS': '⚠️ શંકાસ્પદ · Suspicious',
+    'DANGEROUS': '🚫 ખતરનાક! · Dangerous', 'EMPTY': 'ℹ️ Message લખો', 'ERROR': 'ℹ️ ધ્યાન આપો'
+  };
+  let label = labels[data.verdict] || data.verdict;
+  if (isFile && data.file_type && data.verdict !== 'ERROR') label += ' (' + data.file_type + ')';
+  document.getElementById('verdictLabel').textContent = label;
+  document.getElementById('scoreText').textContent =
+    (data.verdict === 'EMPTY' || data.verdict === 'ERROR') ? '' : 'Risk: ' + data.score + '/100';
+  document.getElementById('adviceText').textContent = data.advice;
+  const list = document.getElementById('reasonsList');
+  list.innerHTML = '';
+  data.reasons.forEach(r => { const li = document.createElement('li'); li.textContent = r; list.appendChild(li); });
+  document.getElementById('aiBadge').style.display = data.ai_used ? 'block' : 'none';
+  // File scan માં feedback button નહીં (message scan માં જ)
+  document.getElementById('feedbackBtn').style.display =
+    (!isFile && data.verdict !== 'EMPTY' && data.verdict !== 'ERROR') ? 'inline-block' : 'none';
+  document.getElementById('feedbackThanks').style.display = 'none';
+  loadStats();
+  resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function scanFile() {
+  const input = document.getElementById('fileInput');
+  const btn = document.getElementById('scanBtn');
+  if (!input.files || input.files.length === 0) {
+    alert('પહેલા file select કરો!'); return;
+  }
+  const file = input.files[0];
+  if (file.size > 10 * 1024 * 1024) {
+    alert('File 10 MB થી નાની હોવી જોઈએ.'); return;
+  }
+  btn.disabled = true; btn.textContent = 'Scanning...';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch('/api/scanfile', { method: 'POST', body: fd });
+    const data = await r.json();
+    showResult(data, true);
+  } catch (e) {
+    alert('Scan માં ભૂલ થઈ. ફરી try કરો.');
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 File Scan કરો';
+  }
+}
 
 async function sendFeedback() {
   if (!lastCheck) return;
