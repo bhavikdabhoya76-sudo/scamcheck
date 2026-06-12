@@ -5,6 +5,7 @@
 import os
 import json
 import urllib.request
+import urllib.error
 
 # Render/computer ના environment માંથી key વાંચો
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -73,6 +74,14 @@ def analyze_with_ai(text: str, timeout: int = 8) -> dict | None:
             "confidence": max(0, min(int(result["confidence"]), 100)),
             "reason": str(result.get("reason", ""))[:200],
         }
-    except Exception:
-        # કોઈપણ error = AI skip કરો, app ચાલતી રહે
+    except urllib.error.HTTPError as e:
+        # Gemini તરફથી error (ખોટી key, quota પૂરો વગેરે) - Logs માં છાપો
+        try:
+            detail = e.read().decode("utf-8")[:300]
+        except Exception:
+            detail = ""
+        print(f"[AI ERROR] Gemini HTTP {e.code}: {detail}")
+        return None
+    except Exception as e:
+        print(f"[AI ERROR] {type(e).__name__}: {str(e)[:200]}")
         return None
