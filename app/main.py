@@ -1,7 +1,7 @@
 # main.py - ScamCheck API v3.3
 # નવું: WhatsApp bot webhook (Twilio)
 
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, UploadFile, File
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from pathlib import Path
@@ -11,8 +11,9 @@ import html
 
 from app.analyzers.sms_analyzer import analyze_message
 from app.analyzers.ai_analyzer import analyze_with_ai, is_ai_available
+from app.analyzers.file_analyzer import scan_file
 
-app = FastAPI(title="ScamCheck API", version="3.3")
+app = FastAPI(title="ScamCheck API", version="3.5")
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
 STATS_FILE = Path(__file__).parent.parent / "stats.json"
@@ -87,6 +88,27 @@ def home():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+# PWA files - phone પર install થવા માટે જરૂરી
+@app.get("/manifest.json")
+def manifest():
+    return FileResponse(STATIC_DIR / "manifest.json")
+
+
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse(STATIC_DIR / "sw.js", media_type="application/javascript")
+
+
+@app.get("/icon-192.png")
+def icon192():
+    return FileResponse(STATIC_DIR / "icon-192.png")
+
+
+@app.get("/icon-512.png")
+def icon512():
+    return FileResponse(STATIC_DIR / "icon-512.png")
+
+
 @app.post("/api/check")
 def check_message(request: CheckRequest):
     text = request.text.strip()
@@ -137,6 +159,27 @@ def whatsapp_webhook(Body: str = Form(""), From: str = Form("")):
     return Response(content=twiml, media_type="application/xml")
 
 
+@app.post("/api/scanfile")
+async def scan_uploaded_file(file: UploadFile = File(...)):
+    """
+    File scan: APK / PDF / Word / Excel / PowerPoint
+    File memory માં જ scan થાય છે - ક્યાંય save થતી નથી (privacy!)
+    """
+    data = await file.read()
+    result = scan_file(file.filename or "", data)
+
+    # Counter (ફક્ત આંકડો, file નહીં!)
+    if result["verdict"] != "ERROR":
+        with _lock:
+            stats = load_stats()
+            stats["total_checks"] += 1
+            if result["verdict"] == "DANGEROUS":
+                stats["frauds_caught"] += 1
+            save_stats(stats)
+
+    return result
+
+
 @app.post("/api/feedback")
 def feedback(request: FeedbackRequest):
     safe_text = request.text[:300].replace("\n", " ")
@@ -152,4 +195,4 @@ def stats():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "3.3", "ai_enabled": is_ai_available()}
+    return {"status": "ok", "version": "3.5", "ai_enabled": is_ai_available()}
