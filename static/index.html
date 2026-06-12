@@ -61,6 +61,7 @@
 
   .footer { text-align: center; color: #64748b; font-size: 0.8rem; margin: 28px 0 10px; line-height: 1.6; }
   .footer a { color: #38bdf8; }
+  .ai-badge { display: none; margin-top: 8px; font-size: 0.82rem; color: #c4b5fd; }
 </style>
 </head>
 <body>
@@ -82,6 +83,7 @@
     <div class="score" id="scoreText"></div>
     <div class="advice" id="adviceText"></div>
     <ul class="reasons" id="reasonsList"></ul>
+    <div class="ai-badge" id="aiBadge">🧠 Google AI વડે ઊંડું analysis કરવામાં આવ્યું</div>
   </div>
 
   <!-- ⚠️ પ્રામાણિક Disclaimer -->
@@ -169,6 +171,8 @@ async function checkMessage() {
       li.textContent = reason;
       list.appendChild(li);
     });
+
+    document.getElementById('aiBadge').style.display = data.ai_used ? 'block' : 'none';
 
     // Result પર scroll કરો જેથી user ને તરત દેખાય
     resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
